@@ -1,0 +1,1178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Study Planner</title>
+<style>
+:root{
+  --bg:#000;
+  --panel:#0c0c0c;
+  --muted:#9aa0a6;
+  --accent:#1db954;
+  --glass: rgba(255,255,255,0.02);
+  --cell-border: rgba(255,255,255,0.03);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;color:#e6edf3;background:var(--bg)}
+.app{max-width:1400px;margin:18px auto;padding:14px;display:none}
+header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+header h1{font-size:20px;margin:0}
+header p{margin:0;color:var(--muted);font-size:13px}
+.controls{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.btn{background:var(--panel);border:1px solid var(--cell-border);padding:8px 12px;border-radius:8px;color:inherit;cursor:pointer}
+.btn.ghost{background:transparent}
+.tab-nav{display:flex;gap:8px;margin-bottom:12px;border-bottom:1px solid var(--cell-border);padding-bottom:8px}
+.tab{padding:6px 12px;border-radius:6px;cursor:pointer}
+.tab.active{background:var(--accent);color:#000}
+.layout{display:flex;gap:12px}
+.planner{flex:1;background:linear-gradient(180deg,#0b0b0b,#0a0a0a);padding:0;border-radius:10px;border:1px solid var(--cell-border);min-width:0;display:flex;flex-direction:column}
+.grid-container{overflow-x:auto;overflow-y:hidden;width:100%;border-radius:10px;border:1px solid var(--cell-border);box-shadow:inset 0 0 8px rgba(0,0,0,0.3);flex:1;min-height:0}
+.grid{display:grid;gap:1px;background:var(--cell-border);position:relative;min-width:fit-content;width:auto}
+.cell{background:var(--glass);padding:4px 2px;font-size:10px;color:var(--muted);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.header-cell{background:transparent;color:var(--muted);font-weight:600;font-size:11px}
+.day-name{background:transparent;justify-content:flex-start;padding-left:14px;font-weight:700;font-size:13px}
+.event{position:absolute;border-radius:6px;padding:4px 6px;font-weight:700;color:#050505;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.5);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:12px}
+.event small{display:block;font-weight:600;font-size:10px;opacity:0.9}
+.side{width:360px;min-width:260px;display:flex;flex-direction:column;gap:10px}
+.panel{background:linear-gradient(180deg,#0b0b0b,#0e0e0e);padding:12px;border-radius:10px;border:1px solid var(--cell-border)}
+label{display:block;color:var(--muted);font-size:13px;margin-bottom:6px}
+input[type=text],input[type=time],input[type=date],input[type=password],input[type=number],select{width:100%;padding:8px;border-radius:8px;border:1px solid var(--cell-border);background:transparent;color:inherit;text-align:center}
+.row{display:flex;gap:8px}
+.small{flex:1}
+.task-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--cell-border);position:relative}
+.task-item:last-child{border-bottom:none}
+.task-checkbox{width:18px;height:18px;cursor:pointer}
+.task-content{flex:1}
+.task-title{font-weight:600;margin-bottom:2px}
+.task-due{font-size:12px;color:var(--muted)}
+.task-countdown{font-size:12px;color:#ff6b6b;font-weight:600}
+.results-table{width:100%;border-collapse:collapse;margin-top:10px}
+.results-table th,
+.results-table td{padding:8px;text-align:center;border:1px solid var(--cell-border)}
+.results-table th{background:var(--panel);font-weight:bold}
+.results-table tr:nth-child(even){background:var(--glass)}
+.completed .task-title{text-decoration:line-through;}
+.failed .task-title{text-decoration:line-through;}
+.task-item.completed {
+  box-shadow: 0 0 8px rgba(46, 204, 113, 0.4);
+}
+.task-item.failed {
+  box-shadow: 0 0 8px rgba(231, 76, 60, 0.4);
+}
+footer{margin-top:12px;color:var(--muted);font-size:13px}
+@media (max-width:1100px){.app{padding:10px}.side{display:none}}
+/* ACCESS GATE */
+#password-gate {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.9);
+  z-index: 999;
+}
+#password-form {
+  background: var(--panel);
+  padding: 20px;
+  border-radius: 10px;
+  border: 1px solid var(--cell-border);
+  width: 300px;
+  text-align: center;
+}
+#password-form input {
+  width: 100%;
+  padding: 10px;
+  margin: 8px 0;
+  border-radius: 6px;
+  border: 1px solid var(--cell-border);
+  background: transparent;
+  color: inherit;
+}
+#password-form button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  border: none;
+  border-radius: 6px;
+  background: #f39c12;
+  color: #111;
+  cursor: pointer;
+}
+/* Admin button */
+.admin-panel {
+  position: fixed;
+  top: 10px; right: 10px;
+  z-index: 1000;
+}
+.admin-btn {
+  background: var(--accent);
+  color: #000;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+}
+</style>
+</head>
+<body>
+  <!-- ADMIN BUTTON -->
+  <div class="admin-panel">
+    <button class="admin-btn" id="adminBtn">🔑</button>
+  </div>
+
+  <!-- ACCESS GATE -->
+  <div id="password-gate">
+    <div id="password-form">
+      <div style="color:#0bb5ff;font-weight:bold;margin-bottom:10px;">ACCESS CODE</div>
+      <input type="text" id="password-input" placeholder="Enter your code" maxlength="8" />
+      <button type="button" id="password-submit">Submit</button>
+      <div id="password-message" style="color:var(--muted);margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div class="app" id="main-app" style="display:none">
+    <header>
+      <h1>Study Planner + Todo + Results</h1>
+      <p>Dark • Tabs • Autosave</p>
+    </header>
+    <div class="tab-nav">
+      <div class="tab active" data-tab="planner">Planner</div>
+      <div class="tab" data-tab="todo">Todo List</div>
+      <div class="tab" data-tab="results">Calculate Results</div>
+    </div>
+    <!-- PLANNER VIEW -->
+    <div id="planner-view" class="active">
+      <div class="controls">
+        <button id="addBtn" class="btn">+ Add Subject</button>
+        <div style="display:flex;gap:4px">
+          <button class="btn ghost slot-btn" data-minutes="15">15m</button>
+          <button class="btn ghost slot-btn" data-minutes="30">30m</button>
+          <button class="btn ghost slot-btn" data-minutes="60">1h</button>
+        </div>
+        <span id="slotDisplay" style="color:var(--muted);font-size:13px">15 min</span>
+        <button id="zoomOut" class="btn ghost">–</button>
+        <button id="zoomIn" class="btn ghost">+</button>
+        <span id="zoomLevel" style="color:var(--muted);font-size:13px">100%</span>
+        <button id="clearBtn" class="btn ghost">Clear All</button>
+        <button id="exportBtn" class="btn ghost">Export JSON</button>
+        <input id="importFile" type="file" accept="application/json" style="display:none" />
+        <button id="importBtn" class="btn ghost">Import JSON</button>
+        <div style="margin-left:auto;color:var(--muted)">Saved: <span id="savedAt">—</span></div>
+      </div>
+      <div class="layout">
+        <div class="planner panel">
+          <div class="grid-container">
+            <div class="grid" id="grid"></div>
+          </div>
+        </div>
+        <aside class="side">
+          <div class="panel">
+            <strong>Add Subject</strong>
+            <form id="eventForm">
+              <label>Title</label>
+              <input type="text" id="title" placeholder="e.g. Math" required />
+              <div class="row" style="margin-top:8px">
+                <div class="small">
+                  <label>Start</label>
+                  <input type="time" id="start" value="08:00" required />
+                </div>
+                <div class="small">
+                  <label>End</label>
+                  <input type="time" id="end" value="09:00" required />
+                </div>
+              </div>
+              <label style="margin-top:8px">Days</label>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+                <label><input type="checkbox" value="0" class="daycb"> Mon</label>
+                <label><input type="checkbox" value="1" class="daycb"> Tue</label>
+                <label><input type="checkbox" value="2" class="daycb"> Wed</label>
+                <label><input type="checkbox" value="3" class="daycb"> Thu</label>
+                <label><input type="checkbox" value="4" class="daycb"> Fri</label>
+                <label><input type="checkbox" value="5" class="daycb"> Sat</label>
+                <label><input type="checkbox" value="6" class="daycb"> Sun</label>
+              </div>
+              <label>Color</label>
+              <input type="color" id="color" value="#ffb86b" style="width:100%;height:40px;border-radius:8px;border:none" />
+              <div style="display:flex;gap:8px;margin-top:12px">
+                <button type="submit" class="btn">Save</button>
+              </div>
+            </form>
+          </div>
+        </aside>
+      </div>
+    </div>
+    <!-- TODO VIEW -->
+    <div id="todo-view" style="display:none;">
+      <div class="controls">
+        <button id="importTodoBtn" class="btn ghost">Import from Planner</button>
+        <div style="margin-left:auto;color:var(--muted)">Tasks: <span id="taskCount">0</span></div>
+      </div>
+      <div class="layout">
+        <div class="planner panel" style="padding:12px">
+          <div class="panel">
+            <strong>Add Task</strong>
+            <form id="taskForm" style="display:flex;flex-direction:column;gap:8px">
+              <input type="text" id="taskTitle" placeholder="e.g. Finish math homework" required />
+              <div class="row">
+                <input type="date" id="taskDate" />
+                <input type="time" id="taskTime" />
+              </div>
+              <button type="submit" class="btn">Add Task</button>
+            </form>
+          </div>
+          <div class="panel">
+            <strong>Tasks</strong>
+            <div id="taskList"></div>
+          </div>
+        </div>
+        <aside class="side">
+          <div class="panel">
+            <strong>Instructions</strong>
+            <ul style="color:var(--muted);font-size:13px;margin:8px 0 0;padding-left:18px">
+              <li>Tasks grouped by calendar day.</li>
+              <li>Use date + time pickers for easy scheduling.</li>
+              <li>Check to complete, use Undo if wrong.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <button id="undoCompleteBtn" class="btn ghost" disabled>Undo Last Completion</button>
+          </div>
+        </aside>
+      </div>
+    </div>
+    <!-- RESULTS VIEW -->
+    <div id="results-view" style="display:none;">
+      <div class="layout">
+        <div class="planner panel" style="padding:12px">
+          <div class="panel">
+            <strong>Calculate Results</strong>
+            <div style="display:flex;gap:10px;margin:10px 0;">
+              <button id="editResultsBtn" class="btn">Edit Mode</button>
+              <button id="saveResultsBtn" class="btn ghost" style="display:none;">Save & View</button>
+            </div>
+            <div id="resultsContent"></div>
+          </div>
+        </div>
+        <aside class="side">
+          <div class="panel">
+            <strong>How It Works</strong>
+            <ul style="color:var(--muted);font-size:13px;margin:8px 0 0;padding-left:18px">
+              <li>Edit grades directly in the table.</li>
+              <li>All tables show raw data only.</li>
+              <li>Click "Edit Mode" to modify.</li>
+            </ul>
+          </div>
+        </aside>
+      </div>
+    </div>
+    <footer>Exclusive access • All data stays on your device</footer>
+  </div>
+
+  <!-- ADMIN MODAL -->
+  <div id="admin-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);align-items:center;justify-content:center;z-index:2000">
+    <div style="background:var(--panel);padding:20px;border-radius:10px;width:90%;max-width:400px;border:1px solid var(--cell-border)">
+      <h3>🔐 Admin Panel</h3>
+      <p>Generate permanent access codes</p>
+      <button id="generate-code" class="btn" style="width:100%;margin:10px 0;">+ Generate New Code</button>
+      <div id="code-list"></div>
+      <button id="close-admin" class="btn ghost" style="width:100%;margin-top:10px;">Close</button>
+    </div>
+  </div>
+
+  <!-- Modals -->
+  <div id="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);align-items:center;justify-content:center">
+    <div style="background:var(--panel);padding:12px;border-radius:10px;width:420px;border:1px solid var(--cell-border)">
+      <strong>Edit Subject</strong>
+      <form id="editForm" style="margin-top:8px">
+        <input type="hidden" id="editId">
+        <label>Title</label>
+        <input type="text" id="editTitle" style="width:100%">
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <input type="time" id="editStart" style="flex:1">
+          <input type="time" id="editEnd" style="flex:1">
+        </div>
+        <label style="margin-top:8px">Color</label>
+        <input type="color" id="editColor">
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button type="submit" class="btn">Update</button>
+          <button type="button" id="deleteBtn" class="btn ghost">Delete</button>
+          <button type="button" id="closeModal" class="btn ghost">Close</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div id="taskModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);align-items:center;justify-content:center">
+    <div style="background:var(--panel);padding:12px;border-radius:10px;width:420px;border:1px solid var(--cell-border)">
+      <strong>Edit Task</strong>
+      <form id="editTaskForm" style="margin-top:8px">
+        <input type="hidden" id="editTaskId">
+        <label>Title</label>
+        <input type="text" id="editTaskTitle" style="width:100%" required />
+        <div class="row" style="margin-top:6px">
+          <input type="date" id="editTaskDate" style="flex:1" required />
+          <input type="time" id="editTaskTime" style="flex:1" required />
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button type="submit" class="btn">Update</button>
+          <button type="button" id="deleteTaskBtn" class="btn ghost">Delete</button>
+          <button type="button" id="closeTaskModal" class="btn ghost">Close</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // ======================
+    // CONFIG
+    // ======================
+    const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const EVENTS_KEY = 'planner_events_v14';
+    const TASKS_KEY = 'planner_tasks_v9';
+    const RESULTS_KEY = 'results_data_v2';
+    const ACCESS_CODES_KEY = 'access_codes_v1';
+    const USED_CODES_KEY = 'used_codes_v1';
+    const USER_ACCESS_KEY = 'user_access_token';
+    const MASTER_KEY = 'ibrahim admin asba'; // 🔑 Your master key
+
+    let events = JSON.parse(localStorage.getItem(EVENTS_KEY) || '[]');
+    let tasks = JSON.parse(localStorage.getItem(TASKS_KEY) || '[]');
+    let resultsData = JSON.parse(localStorage.getItem(RESULTS_KEY) || JSON.stringify(getDefaultEmptyResults()));
+    let lastCompletedTask = null;
+    let zoomLevel = 1.0;
+    let MINUTES_PER_SLOT = 15;
+    let isEditingResults = false;
+
+    function getDefaultEmptyResults() {
+      return {
+        trimester1: [
+          {subject: "Maths", coeff: 3, oral: "17.00", ctrl: "17.50", synth: "17.33", avg: "17.33", total: "52.00"},
+          {subject: "Physique", coeff: 3, oral: "17.00", ctrl: "15.00", synth: "16.75", avg: "16.38", total: "49.13"},
+          {subject: "algo", coeff: 3, oral: "18.00", ctrl: "16.75", synth: "18.00", avg: "17.69", total: "53.06"},
+          {subject: "sti", coeff: 3, oral: "18.50", ctrl: "18.50", synth: "18.50", avg: "18.50", total: "55.50"},
+          {subject: "Philosophie", coeff: 1, oral: "8.00", ctrl: "8.00", synth: "10.00", avg: "9.14", total: "9.14"},
+          {subject: "espagnol", coeff: 1, oral: "16.00", ctrl: "17.00", synth: "18.00", avg: "17.25", total: "17.25"},
+          {subject: "Arabe", coeff: 1, oral: "10.00", ctrl: "9.00", synth: "10.00", avg: "9.75", total: "9.75"},
+          {subject: "Français", coeff: 1, oral: "12.00", ctrl: "10.00", synth: "11.00", avg: "11.00", total: "11.00"},
+          {subject: "Anglais", coeff: 1, oral: "15.00", ctrl: "15.00", synth: "12.50", avg: "13.75", total: "13.75"},
+          {subject: "Sport", coeff: 1, oral: "", ctrl: "18.00", synth: "18.00", avg: "18.00", total: "18.00"}
+        ],
+        trimester2: [
+          {subject: "Maths", coeff: 3, oral: "17.00", ctrl: "17.50", synth: "17.33", avg: "17.33", total: "52.00"},
+          {subject: "Physique", coeff: 3, oral: "17.00", ctrl: "15.00", synth: "16.75", avg: "16.38", total: "49.13"},
+          {subject: "algo", coeff: 3, oral: "18.00", ctrl: "16.75", synth: "18.00", avg: "17.69", total: "53.06"},
+          {subject: "sti", coeff: 3, oral: "18.50", ctrl: "18.50", synth: "18.50", avg: "18.50", total: "55.50"},
+          {subject: "Philosophie", coeff: 1, oral: "8.00", ctrl: "8.00", synth: "10.00", avg: "9.14", total: "9.14"},
+          {subject: "espagnol", coeff: 1, oral: "16.00", ctrl: "17.00", synth: "18.00", avg: "17.25", total: "17.25"},
+          {subject: "Arabe", coeff: 1, oral: "10.00", ctrl: "9.00", synth: "10.00", avg: "9.75", total: "9.75"},
+          {subject: "Français", coeff: 1, oral: "12.00", ctrl: "10.00", synth: "11.00", avg: "11.00", total: "11.00"},
+          {subject: "Anglais", coeff: 1, oral: "15.00", ctrl: "15.00", synth: "12.50", avg: "13.75", total: "13.75"},
+          {subject: "Sport", coeff: 1, oral: "", ctrl: "18.00", synth: "18.00", avg: "18.00", total: "18.00"}
+        ],
+        trimester3: [
+          {subject: "Maths", coeff: 3, oral: "17.00", ctrl: "17.50", synth: "17.33", avg: "17.33", total: "52.00"},
+          {subject: "Physique", coeff: 3, oral: "17.00", ctrl: "15.00", synth: "16.75", avg: "16.38", total: "49.13"},
+          {subject: "algo", coeff: 3, oral: "18.00", ctrl: "16.75", synth: "18.00", avg: "17.69", total: "53.06"},
+          {subject: "sti", coeff: 3, oral: "18.50", ctrl: "18.50", synth: "18.50", avg: "18.50", total: "55.50"},
+          {subject: "Philosophie", coeff: 1, oral: "8.00", ctrl: "8.00", synth: "10.00", avg: "9.14", total: "9.14"},
+          {subject: "espagnol", coeff: 1, oral: "16.00", ctrl: "17.00", synth: "18.00", avg: "17.25", total: "17.25"},
+          {subject: "Arabe", coeff: 1, oral: "10.00", ctrl: "9.00", synth: "10.00", avg: "9.75", total: "9.75"},
+          {subject: "Français", coeff: 1, oral: "12.00", ctrl: "10.00", synth: "11.00", avg: "11.00", total: "11.00"},
+          {subject: "Anglais", coeff: 1, oral: "15.00", ctrl: "15.00", synth: "12.50", avg: "13.75", total: "13.75"},
+          {subject: "Sport", coeff: 1, oral: "", ctrl: "18.00", synth: "18.00", avg: "18.00", total: "18.00"}
+        ],
+        bac: [
+          {subject: "Maths", coeff: 3, note: "18.75", total: "56.25"},
+          {subject: "Physique", coeff: 2, note: "17.75", total: "35.50"},
+          {subject: "algo", coeff: 3, note: "19.50", total: "58.50"},
+          {subject: "sti", coeff: 3, note: "19.75", total: "59.25"},
+          {subject: "Arabe", coeff: 1, note: "18.12", total: "18.12"},
+          {subject: "espagnol", coeff: 0, note: "17.25", total: "7.25"},
+          {subject: "Anglais", coeff: 1, note: "15.75", total: "15.75"},
+          {subject: "Philo", coeff: 1, note: "15.50", total: "15.50"},
+          {subject: "Français", coeff: 1, note: "18.00", total: "18.00"},
+          {subject: "Sport", coeff: 1, note: "19.23", total: "19.23"}
+        ]
+      };
+    }
+
+    // ======================
+    // ADMIN PANEL
+    // ======================
+    document.getElementById('adminBtn').addEventListener('click', () => {
+      const key = prompt('Enter admin key:');
+      if (key === MASTER_KEY) {
+        document.getElementById('admin-modal').style.display = 'flex';
+        renderCodeList();
+      }
+    });
+
+    function generateCode() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let code = '';
+      for (let i = 0; i < 8; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return code;
+    }
+
+    function saveCodes(codes) {
+      localStorage.setItem(ACCESS_CODES_KEY, JSON.stringify(codes));
+    }
+
+    function getCodes() {
+      return JSON.parse(localStorage.getItem(ACCESS_CODES_KEY) || '[]');
+    }
+
+    function getUsedCodes() {
+      return JSON.parse(localStorage.getItem(USED_CODES_KEY) || '{}');
+    }
+
+    function markCodeUsed(code) {
+      const used = getUsedCodes();
+      used[code] = true;
+      localStorage.setItem(USED_CODES_KEY, JSON.stringify(used));
+    }
+
+    document.getElementById('generate-code').addEventListener('click', () => {
+      const code = generateCode();
+      const codes = getCodes();
+      codes.push({ code, createdAt: new Date().toISOString() });
+      saveCodes(codes);
+      renderCodeList();
+      alert(`New code: ${code}`);
+    });
+
+    function renderCodeList() {
+      const codes = getCodes();
+      const used = getUsedCodes();
+      const list = document.getElementById('code-list');
+      list.innerHTML = '<h4>Active Codes</h4>';
+      if (codes.length === 0) {
+        list.innerHTML += '<p>No codes generated</p>';
+        return;
+      }
+      codes.forEach((item, i) => {
+        const isUsed = used[item.code] !== undefined;
+        list.innerHTML += `
+          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--cell-border);">
+            <span>${item.code} ${isUsed ? '✅' : ''}</span>
+            <button class="btn ghost" style="padding:2px 6px;font-size:12px;" onclick="deleteCode(${i})">Del</button>
+          </div>
+        `;
+      });
+    }
+
+    window.deleteCode = function(index) {
+      const codes = getCodes();
+      codes.splice(index, 1);
+      saveCodes(codes);
+      renderCodeList();
+    };
+
+    document.getElementById('close-admin').addEventListener('click', () => {
+      document.getElementById('admin-modal').style.display = 'none';
+    });
+
+    // ======================
+    // ACCESS GATE
+    // ======================
+    const passwordGate = document.getElementById('password-gate');
+    const passwordInput = document.getElementById('password-input');
+    const passwordSubmit = document.getElementById('password-submit');
+    const passwordMessage = document.getElementById('password-message');
+    const mainApp = document.getElementById('main-app');
+
+    // Check if user already has access
+    if (localStorage.getItem(USER_ACCESS_KEY)) {
+      passwordGate.style.display = 'none';
+      mainApp.style.display = 'block';
+    }
+
+    passwordSubmit.addEventListener('click', () => {
+      const code = passwordInput.value.trim().toUpperCase();
+      if (!code) {
+        passwordMessage.textContent = "Enter your access code.";
+        passwordMessage.style.color = "#e74c3c";
+        return;
+      }
+
+      const codes = getCodes();
+      const used = getUsedCodes();
+      const codeExists = codes.some(item => item.code === code);
+      const isUsed = used[code] !== undefined;
+
+      if (!codeExists) {
+        passwordMessage.textContent = "Invalid code.";
+        passwordMessage.style.color = "#e74c3c";
+        return;
+      }
+
+      if (isUsed) {
+        passwordMessage.textContent = "This code is already in use.";
+        passwordMessage.style.color = "#e74c3c";
+        return;
+      }
+
+      // Activate code
+      markCodeUsed(code);
+      const token = btoa(code + Date.now()).substring(0, 12);
+      localStorage.setItem(USER_ACCESS_KEY, token);
+
+      passwordMessage.textContent = "Access granted! 🎉";
+      passwordMessage.style.color = "#27ae60";
+      setTimeout(() => {
+        passwordGate.style.display = 'none';
+        mainApp.style.display = 'block';
+      }, 1000);
+    });
+
+    // ======================
+    // YOUR APP LOGIC (PLANNER, TODO, RESULTS)
+    // ======================
+    // [All your existing functions: calculateAverage, renderResults, buildGrid, renderTodo, etc.]
+
+    function calculateAverage(oral, ctrl, synth) {
+      const values = [oral, ctrl, synth].filter(v => v !== "" && v !== null && !isNaN(v));
+      if (values.length === 0) return "";
+      return (values.reduce((a, b) => a + b, 0) / values.length).toFixed(2);
+    }
+    function calculateTotal(avg, coeff) {
+      if (avg === "" || coeff === 0) return "";
+      return (parseFloat(avg) * parseFloat(coeff)).toFixed(2);
+    }
+    function saveResults() {
+      localStorage.setItem(RESULTS_KEY, JSON.stringify(resultsData));
+    }
+    function renderResults() {
+      const content = document.getElementById('resultsContent');
+      function renderSimpleTable(title, data, fields) {
+        let html = `<h3>${title}</h3><table class="results-table">`;
+        html += `<tr>${fields.map(f => `<th>${f.label}</th>`).join('')}</tr>`;
+        data.forEach(row => {
+          html += `<tr>`;
+          fields.forEach(f => {
+            html += `<td>${row[f.key] !== undefined ? row[f.key] : ''}</td>`;
+          });
+          html += `</tr>`;
+        });
+        html += `</table>`;
+        return html;
+      }
+
+      let html = '';
+      html += renderSimpleTable("1st Trimester", resultsData.trimester1, [
+        {label: "Subject", key: "subject"},
+        {label: "Coeff", key: "coeff"},
+        {label: "Oral", key: "oral"},
+        {label: "Ctrl", key: "ctrl"},
+        {label: "Synth", key: "synth"},
+        {label: "Avg", key: "avg"},
+        {label: "Total", key: "total"}
+      ]);
+      html += renderSimpleTable("2nd Trimester", resultsData.trimester2, [
+        {label: "Subject", key: "subject"},
+        {label: "Coeff", key: "coeff"},
+        {label: "Oral", key: "oral"},
+        {label: "Ctrl", key: "ctrl"},
+        {label: "Synth", key: "synth"},
+        {label: "Avg", key: "avg"},
+        {label: "Total", key: "total"}
+      ]);
+      html += renderSimpleTable("3rd Trimester", resultsData.trimester3, [
+        {label: "Subject", key: "subject"},
+        {label: "Coeff", key: "coeff"},
+        {label: "Oral", key: "oral"},
+        {label: "Ctrl", key: "ctrl"},
+        {label: "Synth", key: "synth"},
+        {label: "Avg", key: "avg"},
+        {label: "Total", key: "total"}
+      ]);
+      html += renderSimpleTable("BAC", resultsData.bac, [
+        {label: "Subject", key: "subject"},
+        {label: "Coeff", key: "coeff"},
+        {label: "Note", key: "note"},
+        {label: "Total", key: "total"}
+      ]);
+      content.innerHTML = html;
+    }
+    function renderResultsEditable() {
+      const content = document.getElementById('resultsContent');
+      // Trimester 1
+      let html = `<h3>1st Trimester</h3><table class="results-table" id="t1-table">`;
+      html += `<tr><th>Subject</th><th>Coeff</th><th>Oral</th><th>Ctrl</th><th>Synth</th><th>Avg</th><th>Total</th><th>Action</th></tr>`;
+      resultsData.trimester1.forEach((row, i) => {
+        html += `
+          <tr>
+            <td><input type="text" value="${row.subject}" data-trimester="1" data-index="${i}" data-field="subject" /></td>
+            <td><input type="number" step="1" value="${row.coeff}" data-trimester="1" data-index="${i}" data-field="coeff" /></td>
+            <td><input type="number" step="0.01" value="${row.oral}" data-trimester="1" data-index="${i}" data-field="oral" /></td>
+            <td><input type="number" step="0.01" value="${row.ctrl}" data-trimester="1" data-index="${i}" data-field="ctrl" /></td>
+            <td><input type="number" step="0.01" value="${row.synth}" data-trimester="1" data-index="${i}" data-field="synth" /></td>
+            <td>${row.avg}</td>
+            <td>${row.total}</td>
+            <td><button class="btn ghost del-row" data-trimester="1" data-index="${i}">Del</button></td>
+          </tr>
+        `;
+      });
+      html += `<tr><td colspan="8"><button class="btn ghost add-row" data-trimester="1">+ Add Row</button></td></tr>`;
+      html += `</table>`;
+      // Trimester 2
+      html += `<h3>2nd Trimester</h3><table class="results-table" id="t2-table">`;
+      html += `<tr><th>Subject</th><th>Coeff</th><th>Oral</th><th>Ctrl</th><th>Synth</th><th>Avg</th><th>Total</th><th>Action</th></tr>`;
+      resultsData.trimester2.forEach((row, i) => {
+        html += `
+          <tr>
+            <td><input type="text" value="${row.subject}" data-trimester="2" data-index="${i}" data-field="subject" /></td>
+            <td><input type="number" step="1" value="${row.coeff}" data-trimester="2" data-index="${i}" data-field="coeff" /></td>
+            <td><input type="number" step="0.01" value="${row.oral}" data-trimester="2" data-index="${i}" data-field="oral" /></td>
+            <td><input type="number" step="0.01" value="${row.ctrl}" data-trimester="2" data-index="${i}" data-field="ctrl" /></td>
+            <td><input type="number" step="0.01" value="${row.synth}" data-trimester="2" data-index="${i}" data-field="synth" /></td>
+            <td>${row.avg}</td>
+            <td>${row.total}</td>
+            <td><button class="btn ghost del-row" data-trimester="2" data-index="${i}">Del</button></td>
+          </tr>
+        `;
+      });
+      html += `<tr><td colspan="8"><button class="btn ghost add-row" data-trimester="2">+ Add Row</button></td></tr>`;
+      html += `</table>`;
+      // Trimester 3
+      html += `<h3>3rd Trimester</h3><table class="results-table" id="t3-table">`;
+      html += `<tr><th>Subject</th><th>Coeff</th><th>Oral</th><th>Ctrl</th><th>Synth</th><th>Avg</th><th>Total</th><th>Action</th></tr>`;
+      resultsData.trimester3.forEach((row, i) => {
+        html += `
+          <tr>
+            <td><input type="text" value="${row.subject}" data-trimester="3" data-index="${i}" data-field="subject" /></td>
+            <td><input type="number" step="1" value="${row.coeff}" data-trimester="3" data-index="${i}" data-field="coeff" /></td>
+            <td><input type="number" step="0.01" value="${row.oral}" data-trimester="3" data-index="${i}" data-field="oral" /></td>
+            <td><input type="number" step="0.01" value="${row.ctrl}" data-trimester="3" data-index="${i}" data-field="ctrl" /></td>
+            <td><input type="number" step="0.01" value="${row.synth}" data-trimester="3" data-index="${i}" data-field="synth" /></td>
+            <td>${row.avg}</td>
+            <td>${row.total}</td>
+            <td><button class="btn ghost del-row" data-trimester="3" data-index="${i}">Del</button></td>
+          </tr>
+        `;
+      });
+      html += `<tr><td colspan="8"><button class="btn ghost add-row" data-trimester="3">+ Add Row</button></td></tr>`;
+      html += `</table>`;
+      // BAC
+      html += `<h3>BAC</h3><table class="results-table" id="bac-table">`;
+      html += `<tr><th>Subject</th><th>Coeff</th><th>Note</th><th>Total</th><th>Action</th></tr>`;
+      resultsData.bac.forEach((row, i) => {
+        html += `
+          <tr>
+            <td><input type="text" value="${row.subject}" data-trimester="bac" data-index="${i}" data-field="subject" /></td>
+            <td><input type="number" step="1" value="${row.coeff}" data-trimester="bac" data-index="${i}" data-field="coeff" /></td>
+            <td><input type="number" step="0.01" value="${row.note}" data-trimester="bac" data-index="${i}" data-field="note" /></td>
+            <td>${row.total}</td>
+            <td><button class="btn ghost del-row" data-trimester="bac" data-index="${i}">Del</button></td>
+          </tr>
+        `;
+      });
+      html += `<tr><td colspan="5"><button class="btn ghost add-row" data-trimester="bac">+ Add Row</button></td></tr>`;
+      html += `</table>`;
+      content.innerHTML = html;
+
+      document.querySelectorAll('#resultsContent input').forEach(input => {
+        input.addEventListener('input', (e) => {
+          const trimester = e.target.dataset.trimester;
+          const index = parseInt(e.target.dataset.index);
+          const field = e.target.dataset.field;
+          const value = e.target.value === "" ? "" : (field === 'subject' ? e.target.value : parseFloat(e.target.value));
+          if (trimester === '1') {
+            resultsData.trimester1[index][field] = value;
+            if (field !== 'subject' && field !== 'coeff') {
+              const row = resultsData.trimester1[index];
+              row.avg = calculateAverage(row.oral, row.ctrl, row.synth);
+              row.total = calculateTotal(row.avg, row.coeff);
+            }
+          } else if (trimester === '2') {
+            resultsData.trimester2[index][field] = value;
+            if (field !== 'subject' && field !== 'coeff') {
+              const row = resultsData.trimester2[index];
+              row.avg = calculateAverage(row.oral, row.ctrl, row.synth);
+              row.total = calculateTotal(row.avg, row.coeff);
+            }
+          } else if (trimester === '3') {
+            resultsData.trimester3[index][field] = value;
+            if (field !== 'subject' && field !== 'coeff') {
+              const row = resultsData.trimester3[index];
+              row.avg = calculateAverage(row.oral, row.ctrl, row.synth);
+              row.total = calculateTotal(row.avg, row.coeff);
+            }
+          } else if (trimester === 'bac') {
+            resultsData.bac[index][field] = value;
+            if (field === 'note') {
+              const row = resultsData.bac[index];
+              row.total = calculateTotal(row.note, row.coeff);
+            }
+          }
+        });
+      });
+
+      document.querySelectorAll('.add-row').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const trimester = e.target.dataset.trimester;
+          const newRow = { subject: "New", coeff: 1, oral: "", ctrl: "", synth: "", note: "", avg: "", total: "" };
+          if (trimester === '1') resultsData.trimester1.push(newRow);
+          else if (trimester === '2') resultsData.trimester2.push(newRow);
+          else if (trimester === '3') resultsData.trimester3.push(newRow);
+          else if (trimester === 'bac') resultsData.bac.push(newRow);
+          renderResultsEditable();
+        });
+      });
+      document.querySelectorAll('.del-row').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const trimester = e.target.dataset.trimester;
+          const index = parseInt(e.target.dataset.index);
+          if (trimester === '1') resultsData.trimester1.splice(index, 1);
+          else if (trimester === '2') resultsData.trimester2.splice(index, 1);
+          else if (trimester === '3') resultsData.trimester3.splice(index, 1);
+          else if (trimester === 'bac') resultsData.bac.splice(index, 1);
+          renderResultsEditable();
+        });
+      });
+    }
+
+    document.getElementById('editResultsBtn').addEventListener('click', () => {
+      isEditingResults = true;
+      document.getElementById('editResultsBtn').style.display = 'none';
+      document.getElementById('saveResultsBtn').style.display = 'inline-block';
+      renderResultsEditable();
+    });
+    document.getElementById('saveResultsBtn').addEventListener('click', () => {
+      isEditingResults = false;
+      saveResults();
+      document.getElementById('editResultsBtn').style.display = 'inline-block';
+      document.getElementById('saveResultsBtn').style.display = 'none';
+      renderResults();
+    });
+
+    // ======================
+    // PLANNER & TODO (MINIMAL VERSION FOR BREVITY)
+    // ======================
+    function buildGrid() {
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+      const SLOTS_PER_HOUR = 60 / MINUTES_PER_SLOT;
+      const TOTAL_SLOTS = 24 * SLOTS_PER_HOUR;
+      const slotWidth = 60 * (15 / MINUTES_PER_SLOT);
+      grid.style.gridTemplateColumns = `140px repeat(${TOTAL_SLOTS}, ${slotWidth}px)`;
+      grid.style.gridAutoRows = '56px';
+      grid.appendChild(createCell('header-cell', ''));
+      for (let slot = 0; slot < TOTAL_SLOTS; slot++) {
+        const c = document.createElement('div');
+        c.className = 'cell header-cell';
+        if (slot % SLOTS_PER_HOUR === 0) {
+          c.textContent = String(slot / SLOTS_PER_HOUR).padStart(2, '0') + ':00';
+        }
+        grid.appendChild(c);
+      }
+      for (let d = 0; d < 7; d++) {
+        const dayName = document.createElement('div');
+        dayName.className = 'cell day-name';
+        dayName.textContent = DAYS[d];
+        grid.appendChild(dayName);
+        for (let slot = 0; slot < TOTAL_SLOTS; slot++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          cell.dataset.day = d;
+          cell.dataset.slot = slot;
+          grid.appendChild(cell);
+        }
+      }
+    }
+    function createCell(className, text) {
+      const el = document.createElement('div');
+      el.className = 'cell ' + className;
+      el.textContent = text;
+      return el;
+    }
+    function timeToSlot(timeStr) {
+      const [h, m] = timeStr.split(':').map(Number);
+      return h * (60 / MINUTES_PER_SLOT) + Math.floor(m / MINUTES_PER_SLOT);
+    }
+    function slotToTime(slot) {
+      const totalMinutes = slot * MINUTES_PER_SLOT;
+      const h = Math.floor(totalMinutes / 60) % 24;
+      const m = totalMinutes % 60;
+      return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    }
+    function timeToMinutes(t) {
+      const [h, m] = t.split(':').map(Number);
+      return h * 60 + m;
+    }
+    function renderPlanner() {
+      document.querySelectorAll('.event').forEach(e => e.remove());
+      const grid = document.getElementById('grid');
+      const leftCol = 140;
+      const slotWidth = 60 * (15 / MINUTES_PER_SLOT);
+      const headerHeight = 56;
+      const rowHeight = 56;
+      events.forEach(ev => {
+        (ev.days || []).forEach(day => {
+          const startSlot = timeToSlot(ev.start);
+          const endSlot = timeToSlot(ev.end);
+          const dur = Math.max(1, endSlot - startSlot);
+          const el = document.createElement('div');
+          el.className = 'event';
+          el.style.left = (leftCol + startSlot * slotWidth) + 'px';
+          el.style.top = (headerHeight + day * rowHeight + 4) + 'px';
+          el.style.width = (dur * slotWidth) + 'px';
+          el.style.height = (rowHeight - 8) + 'px';
+          el.style.background = ev.color || '#ffb86b';
+          el.innerHTML = `<div>${ev.title}</div><small>${ev.start} – ${ev.end}</small>`;
+          el.dataset.id = ev.id;
+          grid.appendChild(el);
+        });
+      });
+      document.getElementById('slotDisplay').textContent = MINUTES_PER_SLOT + ' min';
+    }
+    document.querySelectorAll('.slot-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        MINUTES_PER_SLOT = parseInt(btn.dataset.minutes);
+        buildGrid();
+        renderPlanner();
+      });
+    });
+    document.getElementById('zoomIn').addEventListener('click', () => {
+      zoomLevel = Math.min(1.5, zoomLevel + 0.1);
+      document.getElementById('grid').style.transform = `scale(${zoomLevel})`;
+      document.getElementById('zoomLevel').textContent = Math.round(zoomLevel * 100) + '%';
+    });
+    document.getElementById('zoomOut').addEventListener('click', () => {
+      zoomLevel = Math.max(0.7, zoomLevel - 0.1);
+      document.getElementById('grid').style.transform = `scale(${zoomLevel})`;
+      document.getElementById('zoomLevel').textContent = Math.round(zoomLevel * 100) + '%';
+    });
+    document.getElementById('eventForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const title = document.getElementById('title').value.trim();
+      const start = document.getElementById('start').value;
+      const end = document.getElementById('end').value;
+      const color = document.getElementById('color').value;
+      const days = Array.from(document.querySelectorAll('.daycb:checked')).map(cb => +cb.value);
+      if (!title || !start || !end || days.length === 0) return alert('Fill all fields');
+      if (timeToMinutes(end) <= timeToMinutes(start)) return alert('End after start');
+      events.push({id: Date.now(), title, start, end, color, days});
+      savePlanner();
+      renderPlanner();
+      document.getElementById('eventForm').reset();
+    });
+    function savePlanner() {
+      localStorage.setItem(EVENTS_KEY, JSON.stringify(events));
+      document.getElementById('savedAt').textContent = new Date().toLocaleTimeString();
+    }
+    document.getElementById('grid').addEventListener('click', e => {
+      const cell = e.target.closest('.cell');
+      if (!cell || cell.classList.contains('header-cell') || cell.classList.contains('day-name')) return;
+      const day = +cell.dataset.day;
+      const slot = +cell.dataset.slot;
+      document.getElementById('title').focus();
+      document.getElementById('start').value = slotToTime(slot);
+      document.getElementById('end').value = slotToTime(slot + 1);
+      document.querySelectorAll('.daycb').forEach(cb => cb.checked = +cb.value === day);
+    });
+
+    // TODO LIST
+    function saveTasks() {
+      localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+      document.getElementById('taskCount').textContent = tasks.filter(t => !t.completed && !t.failed).length;
+    }
+    function getTaskGroup(dueDate, today) {
+      const dueDay = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+      const diffDays = Math.floor((dueDay - today) / (1000 * 60 * 60 * 24));
+      if (diffDays === 0) return 'Today';
+      if (diffDays === 1) return 'Tomorrow';
+      if (diffDays > 1 && diffDays <= 7) return 'This Week';
+      if (diffDays > 7 && diffDays <= 14) return 'Next Week';
+      if (diffDays > 14 && diffDays <= 30) return 'This Month';
+      return 'Next Month';
+    }
+    function renderTodo() {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const groups = {
+        'Today': [],
+        'Tomorrow': [],
+        'This Week': [],
+        'Next Week': [],
+        'This Month': [],
+        'Next Month': []
+      };
+      tasks.forEach(task => {
+        const due = new Date(task.due);
+        const group = getTaskGroup(due, today);
+        groups[group].push(task);
+      });
+      const list = document.getElementById('taskList');
+      list.innerHTML = '';
+      Object.entries(groups).forEach(([title, taskList]) => {
+        if (taskList.length === 0) return;
+        list.innerHTML += `<h4 style="margin:12px 0 8px;color:var(--accent);font-size:14px">${title}</h4>`;
+        taskList.forEach(task => {
+          const due = new Date(task.due);
+          const diffMs = due - now;
+          const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+          const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+          const countdown = diffMs > 0 ? `${diffHrs}h ${diffMins}m left` : 'Overdue';
+          const item = document.createElement('div');
+          item.className = `task-item ${task.completed ? 'completed' : task.failed ? 'failed' : ''}`;
+          item.innerHTML = `
+            <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked disabled' : task.failed ? 'disabled' : ''} data-id="${task.id}">
+            <div class="task-content">
+              <div class="task-title">${task.title}</div>
+              <div class="task-due">${due.toLocaleString()}</div>
+              <div class="task-countdown">${countdown}</div>
+            </div>
+            <div class="task-status" style="color:${task.completed ? '#27ae60' : task.failed ? '#e74c3c' : 'inherit'}">
+              ${task.completed ? 'Completed' : task.failed ? 'Thrown' : ''}
+            </div>
+            <button class="btn ghost" style="padding:4px 8px;font-size:11px;" data-id="${task.id}">Edit</button>
+            ${!task.completed && !task.failed ? `<button class="btn ghost skip-btn" style="padding:4px 8px;font-size:11px;" data-id="${task.id}">Skip</button>` : ''}
+          `;
+          list.appendChild(item);
+        });
+      });
+
+      document.querySelectorAll('.task-checkbox').forEach(cb => {
+        cb.addEventListener('change', (e) => {
+          const id = e.target.dataset.id;
+          const task = tasks.find(t => t.id == id);
+          if (task && !task.completed && !task.failed) {
+            task.completed = true;
+            lastCompletedTask = {...task};
+            saveTasks();
+            renderTodo();
+          }
+        });
+      });
+
+      document.querySelectorAll('.skip-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const id = e.target.dataset.id;
+          const task = tasks.find(t => t.id == id);
+          if (task && !task.completed && !task.failed) {
+            task.failed = true;
+            saveTasks();
+            renderTodo();
+          }
+        });
+      });
+
+      document.querySelectorAll('[data-id]').forEach(btn => {
+        if (btn.classList.contains('btn') && !btn.classList.contains('skip-btn')) {
+          btn.addEventListener('click', (e) => {
+            const id = e.target.dataset.id;
+            const task = tasks.find(t => t.id == id);
+            if (task) {
+              document.getElementById('editTaskId').value = task.id;
+              document.getElementById('editTaskTitle').value = task.title;
+              const due = new Date(task.due);
+              document.getElementById('editTaskDate').value = due.toISOString().split('T')[0];
+              document.getElementById('editTaskTime').value = due.toTimeString().slice(0,5);
+              document.getElementById('taskModal').style.display = 'flex';
+            }
+          });
+        }
+      });
+
+      document.getElementById('undoCompleteBtn').disabled = !lastCompletedTask;
+    }
+
+    document.getElementById('taskForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const title = document.getElementById('taskTitle').value.trim();
+      const dateStr = document.getElementById('taskDate').value;
+      const timeStr = document.getElementById('taskTime').value;
+      if (!title || !dateStr || !timeStr) return alert('Fill all fields');
+      const due = new Date(`${dateStr}T${timeStr}`);
+      tasks.push({
+        id: Date.now(),
+        title,
+        due: due.getTime(),
+        completed: false,
+        failed: false
+      });
+      saveTasks();
+      renderTodo();
+      document.getElementById('taskForm').reset();
+    });
+
+    document.getElementById('undoCompleteBtn').addEventListener('click', () => {
+      if (lastCompletedTask) {
+        const task = tasks.find(t => t.id == lastCompletedTask.id);
+        if (task) {
+          task.completed = false;
+          task.failed = false;
+        }
+        saveTasks();
+        renderTodo();
+        lastCompletedTask = null;
+      }
+    });
+
+    document.getElementById('importTodoBtn').addEventListener('click', () => {
+      events.forEach(ev => {
+        (ev.days || []).forEach(dayIndex => {
+          const day = new Date();
+          day.setDate(day.getDate() + ((dayIndex - day.getDay() + 7) % 7));
+          const [sh, sm] = ev.start.split(':').map(Number);
+          day.setHours(sh, sm, 0, 0);
+          tasks.push({
+            id: Date.now(),
+            title: ev.title,
+            due: day.getTime(),
+            completed: false,
+            failed: false
+          });
+        });
+      });
+      saveTasks();
+      renderTodo();
+      alert('Imported!');
+    });
+
+    setInterval(() => {
+      const now = Date.now();
+      tasks.forEach(task => {
+        if (!task.completed && !task.failed && now > task.due) {
+          task.failed = true;
+        }
+      });
+      saveTasks();
+      if (document.querySelector('.tab.active').dataset.tab === 'todo') {
+        renderTodo();
+      }
+    }, 60000);
+
+    // TABS
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('#planner-view, #todo-view, #results-view').forEach(v => v.style.display = 'none');
+        tab.classList.add('active');
+        const view = tab.dataset.tab;
+        document.getElementById(`${view}-view`).style.display = 'block';
+        if (view === 'todo') renderTodo();
+        if (view === 'results') {
+          if (isEditingResults) {
+            renderResultsEditable();
+          } else {
+            renderResults();
+          }
+        }
+      });
+    });
+
+    // MODALS
+    document.getElementById('closeModal').onclick = () => 
+      document.getElementById('modal').style.display = 'none';
+    document.getElementById('editForm').onsubmit = e => {
+      e.preventDefault();
+      const id = document.getElementById('editId').value;
+      const ev = events.find(e => e.id === id);
+      if (!ev) return;
+      if (timeToMinutes(document.getElementById('editEnd').value) <= timeToMinutes(document.getElementById('editStart').value)) {
+        alert('End must be after start.');
+        return;
+      }
+      ev.title = document.getElementById('editTitle').value;
+      ev.start = document.getElementById('editStart').value;
+      ev.end = document.getElementById('editEnd').value;
+      ev.color = document.getElementById('editColor').value;
+      savePlanner();
+      renderPlanner();
+      document.getElementById('modal').style.display = 'none';
+    };
+    document.getElementById('deleteBtn').onclick = () => {
+      const id = document.getElementById('editId').value;
+      if (confirm('Delete this subject?')) {
+        events = events.filter(x => x.id !== id);
+        savePlanner();
+        renderPlanner();
+        document.getElementById('modal').style.display = 'none';
+      }
+    };
+    document.getElementById('closeTaskModal').onclick = () => 
+      document.getElementById('taskModal').style.display = 'none';
+    document.getElementById('editTaskForm').onsubmit = e => {
+      e.preventDefault();
+      const id = document.getElementById('editTaskId').value;
+      const task = tasks.find(t => t.id == id);
+      if (!task) return;
+      const title = document.getElementById('editTaskTitle').value.trim();
+      const dateStr = document.getElementById('editTaskDate').value;
+      const timeStr = document.getElementById('editTaskTime').value;
+      if (!title || !dateStr || !timeStr) return alert('Fill all fields');
+      const due = new Date(`${dateStr}T${timeStr}`);
+      task.title = title;
+      task.due = due.getTime();
+      saveTasks();
+      renderTodo();
+      document.getElementById('taskModal').style.display = 'none';
+    };
+    document.getElementById('deleteTaskBtn').onclick = () => {
+      const id = document.getElementById('editTaskId').value;
+      if (confirm('Delete this task?')) {
+        tasks = tasks.filter(t => t.id != id);
+        saveTasks();
+        renderTodo();
+        document.getElementById('taskModal').style.display = 'none';
+      }
+    };
+
+    // IMPORT/EXPORT
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      const data = { events, tasks, resultsData };
+      const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'study-planner.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+    document.getElementById('importBtn').addEventListener('click', () => {
+      document.getElementById('importFile').click();
+    });
+    document.getElementById('importFile').addEventListener('change', function(){
+      const f = this.files[0];
+      if(!f) return;
+      const r = new FileReader();
+      r.onload = ()=>{
+        try{
+          const obj = JSON.parse(r.result);
+          if(obj.events) events = obj.events;
+          if(obj.tasks) tasks = obj.tasks;
+          if(obj.resultsData) resultsData = obj.resultsData;
+          savePlanner();
+          saveTasks();
+          localStorage.setItem(RESULTS_KEY, JSON.stringify(resultsData));
+          buildGrid();
+          renderPlanner();
+          renderTodo();
+          renderResults();
+          alert('Imported successfully!');
+        }catch(e){
+          alert('Invalid file');
+        }
+      };
+      r.readAsText(f);
+    });
+
+    // INIT
+    const todayStr = new Date().toISOString().split('T')[0];
+    document.getElementById('taskDate').value = todayStr;
+    document.getElementById('taskTime').value = '09:00';
+    buildGrid();
+    renderPlanner();
+    savePlanner();
+    renderTodo();
+    renderResults();
+  </script>
+</body>
+</html>
